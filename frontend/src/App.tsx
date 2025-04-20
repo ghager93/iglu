@@ -1,15 +1,16 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import './App.css'
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 
 const GMT_TIMEZONE = 'UTC'
 
 function App() {
   const [remoteReadings, setRemoteReadings] = useState<Array<{value: number, timestamp: number}>>([])
 
-  // Fetch remote readings from backend
+  // Fetch readings from DB via backend API
   const handleFetchRemote = async () => {
     try {
-      const res = await fetch('http://localhost:8000/api/glucose-readings/remote')
+      const res = await fetch('http://localhost:8000/api/glucose-readings/db')
       if (!res.ok) {
         const errBody = await res.text()
         console.error(`Remote fetch failed with status ${res.status}:`, errBody)
@@ -24,6 +25,11 @@ function App() {
       alert('Error fetching remote readings')
     }
   }
+
+  // Automatically load readings on component mount
+  useEffect(() => {
+    handleFetchRemote()
+  }, [])
 
   return (
     <div className="container">
@@ -61,6 +67,33 @@ function App() {
               </tbody>
             </table>
           </div>
+
+          {/* Line chart */}
+          <h2>Glucose Trend</h2>
+          <ResponsiveContainer width="100%" height={300}>
+            <LineChart
+              data={[...remoteReadings].reverse()}
+              margin={{ top: 20, right: 30, left: 0, bottom: 0 }}
+            >
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis
+                dataKey="timestamp"
+                type="number"
+                domain={["dataMin", "dataMax"]}
+                tickFormatter={(ts) =>
+                  new Date(ts * 1000).toLocaleTimeString('en-AU', { timeZone: GMT_TIMEZONE, hour: '2-digit', minute: '2-digit' })
+                }
+                interval="preserveStartEnd"
+              />
+              <YAxis domain={["auto", "auto"]} />
+              <Tooltip
+                labelFormatter={(ts) =>
+                  new Date(ts * 1000).toLocaleString('en-AU', { timeZone: GMT_TIMEZONE, hour12: false })
+                }
+              />
+              <Line type="monotone" dataKey="value" stroke="#8884d8" dot={false} />
+            </LineChart>
+          </ResponsiveContainer>
         </div>
       )}
     </div>

@@ -9,7 +9,6 @@ from app.schemas import glucose_reading as schemas
 from app.schemas.glucose_reading import RemoteReading
 import fetch_glucose
 from loguru import logger
-from datetime import datetime
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 
 router = APIRouter(
@@ -61,7 +60,14 @@ async def get_remote_readings(db: AsyncSession = Depends(get_db)):
     except Exception as e:
         logger.exception("Error in get_remote_readings")
         raise HTTPException(status_code=500, detail=str(e))
-    
+
+@router.get("/db", response_model=List[schemas.RemoteReading])
+async def get_db_readings(db: AsyncSession = Depends(get_db)):
+    """Get glucose readings from DB with epoch timestamp"""
+    result = await db.execute(select(models.GlucoseReading))
+    readings = result.scalars().all()
+    return readings
+
 @router.get("/{reading_id}", response_model=schemas.GlucoseReading)
 async def get_glucose_reading(reading_id: int, db: AsyncSession = Depends(get_db)):
     """Get a specific glucose reading by ID"""
