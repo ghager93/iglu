@@ -1,7 +1,7 @@
 import os
 import json
-from datetime import datetime, timedelta, timezone
-import requests
+from datetime import datetime, timezone
+import httpx
 from dotenv import load_dotenv
 from loguru import logger
 
@@ -33,21 +33,17 @@ def load_token():
         return data.get("access_token")
 
 
-def get_token():
+async def get_token():
     token = load_token()
     if token:
         return token
-
     url = f"{HOST_URL.rstrip('/')}/{TOKEN_ENDPOINT.lstrip('/')}"
-    headers = {
-        "Content-Type": "application/json",
-        "version": "4.7.0",
-        "product": "llu.android", 
-    }
+    headers = {"Content-Type": "application/json", "version": "4.7.0", "product": "llu.android"}
     payload = {"email": USERNAME, "password": PASSWORD}
-    resp = requests.post(url, headers=headers, json=payload)
-    resp.raise_for_status()
-    data = resp.json()
+    async with httpx.AsyncClient() as client:
+        resp = await client.post(url, headers=headers, json=payload)
+        resp.raise_for_status()
+        data = resp.json()
     token = data.get("data", {}).get("authTicket", {}).get("token", None)
     if not token:
         raise ValueError("Failed to retrieve token from response")
@@ -58,16 +54,13 @@ def get_token():
     return token
 
 
-def fetch_glucose_readings(token: str):
+async def fetch_glucose_readings(token: str):
     url = f"{HOST_URL.rstrip('/')}/{GLUCOSE_ENDPOINT.lstrip('/')}"
-    headers = {
-        "Authorization": f"Bearer {token}",
-        "version": "4.7.0",
-        "product": "llu.android",
-    }
-    resp = requests.get(url, headers=headers)
-    resp.raise_for_status()
-    return extract_readings(resp.json())
+    headers = {"Authorization": f"Bearer {token}", "version": "4.7.0", "product": "llu.android"}
+    async with httpx.AsyncClient() as client:
+        resp = await client.get(url, headers=headers)
+        resp.raise_for_status()
+        return extract_readings(resp.json())
 
 
 def extract_readings(api_resp):
@@ -86,12 +79,13 @@ def extract_readings(api_resp):
     return readings
 
 
-def main():
-    token = get_token()
+async def main():
+    token = await get_token()
     logger.debug(f"Token: {token}")
-    readings = fetch_glucose_readings(token)
+    readings = await fetch_glucose_readings(token)
     print(json.dumps(readings, indent=2))
 
 
 if __name__ == '__main__':
-    main()
+    import asyncio
+    asyncio.run(main())

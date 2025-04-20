@@ -1,9 +1,10 @@
-fastapi
+fastapi[standard]
 uvicorn
 sqlalchemy
 pydantic
 python-dotenv
 pytest
 httpx
-requests
+aiosqlite
 loguru
+alembic

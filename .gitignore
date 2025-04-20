@@ -1,0 +1,53 @@
+# Python bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+env/
+.env
+
+# Dependency directories
+.env
+
+# SQLite database
+*.db
+
+# Token/cache files
+token.json
+.ruff_cache/
+
+# Logs
+*.log
+pip-log.txt
+
+# Coverage and test artifacts
+.coverage
+htmlcov/
+.pytest_cache/
+
+# Build and packaging
+build/
+dist/
+*.egg-info/
+*.egg
+.eggs/
+
+# Editor and IDE
+.vscode/
+.idea/
+.DS_Store
+
+# Node modules and logs
+node_modules/
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Vite output
+frontend/dist/
+
+# Misc
+*.so

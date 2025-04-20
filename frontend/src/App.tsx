@@ -4,24 +4,7 @@ import './App.css'
 const GMT_TIMEZONE = 'UTC'
 
 function App() {
-  const [glucoseLevel, setGlucoseLevel] = useState<string>('')
-  const [readings, setReadings] = useState<Array<{level: number, timestamp: string}>>([])
   const [remoteReadings, setRemoteReadings] = useState<Array<{value: number, timestamp: number}>>([])
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    
-    if (!glucoseLevel) return
-    
-    // In a real app, we would send this to the backend
-    const newReading = {
-      level: parseFloat(glucoseLevel),
-      timestamp: new Date().toISOString()
-    }
-    
-    setReadings([...readings, newReading])
-    setGlucoseLevel('')
-  }
 
   // Fetch remote readings from backend
   const handleFetchRemote = async () => {
@@ -48,24 +31,6 @@ function App() {
         <h1>Diabetes Management App</h1>
         <p>Track and manage your glucose readings</p>
       </header>
-
-      <form onSubmit={handleSubmit} className="glucose-form">
-        <h2>Add New Reading</h2>
-        <div className="form-group">
-          <label htmlFor="glucoseLevel">Glucose Level (mg/dL):</label>
-          <input
-            type="number"
-            id="glucoseLevel"
-            value={glucoseLevel}
-            onChange={(e) => setGlucoseLevel(e.target.value)}
-            step="0.1"
-            min="0"
-            placeholder="Enter your glucose reading"
-            required
-          />
-        </div>
-        <button type="submit">Save Reading</button>
-      </form>
 
       {/* Button to load remote readings */}
       <div style={{ marginBottom: '20px' }}>
@@ -98,24 +63,6 @@ function App() {
           </div>
         </div>
       )}
-
-      <div className="readings-section">
-        <h2>Recent Readings</h2>
-        {readings.length === 0 ? (
-          <p>No readings recorded yet</p>
-        ) : (
-          <ul className="readings-list">
-            {readings.map((reading, index) => (
-              <li key={index}>
-                <span className="reading-level">{reading.level} mg/dL</span>
-                <span className="reading-time">
-                  {new Date(reading.timestamp).toLocaleString()}
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
     </div>
   )
 }
