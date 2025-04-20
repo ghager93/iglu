@@ -34,29 +34,30 @@ async def create_glucose_reading(reading: schemas.GlucoseReadingCreate, db: Asyn
     await db.refresh(db_reading)
     return db_reading
 
+async def fetch_and_save_remote_readings(db: AsyncSession) -> List[RemoteReading]:
+    """Fetch remote glucose readings and upsert into the database."""
+    logger.debug("fetch_and_save_remote_readings called")
+    token = await fetch_glucose.get_token()
+    logger.debug(f"Retrieved token: {token[:8]}... (truncated)")
+    readings = await fetch_glucose.fetch_glucose_readings(token)
+    rows = [{"value": r["value"], "timestamp": r["timestamp"]} for r in readings]
+    if rows:
+        stmt = sqlite_insert(models.GlucoseReading).values(rows)
+        stmt = stmt.on_conflict_do_update(
+            index_elements=["timestamp"],
+            set_={"value": stmt.excluded["value"]}
+        )
+        await db.execute(stmt)
+        await db.commit()
+    logger.info(f"Successfully fetched {len(readings)} remote readings")
+    return readings
+
 @router.get("/remote", response_model=List[RemoteReading])
 async def get_remote_readings(db: AsyncSession = Depends(get_db)):
     """Fetch glucose readings from remote API and return list of RemoteReading"""
     logger.debug("get_remote_readings called")
     try:
-        token = await fetch_glucose.get_token()
-        logger.debug(f"Retrieved token: {token[:8]}... (truncated)")
-        # fetch raw readings
-        readings = await fetch_glucose.fetch_glucose_readings(token)
-        # Upsert readings into the database, timestamp unique
-        rows = []
-        for r in readings:
-            rows.append({"value": r["value"], "timestamp": r["timestamp"]})
-        if rows:
-            stmt = sqlite_insert(models.GlucoseReading).values(rows)
-            stmt = stmt.on_conflict_do_update(
-                index_elements=["timestamp"],
-                set_={"value": stmt.excluded["value"]}
-            )
-            await db.execute(stmt)
-            await db.commit()
-        logger.info(f"Successfully fetched {len(readings)} remote readings")
-        return readings
+        return await fetch_and_save_remote_readings(db)
     except Exception as e:
         logger.exception("Error in get_remote_readings")
         raise HTTPException(status_code=500, detail=str(e))

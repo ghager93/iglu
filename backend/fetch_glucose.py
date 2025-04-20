@@ -67,6 +67,10 @@ def extract_readings(api_resp):
     """Return list of readings with 'value' and epoch 'timestamp' from API response."""
     data = api_resp.get('data', {})
     graph = data.get('graphData', [])
+    current_measurement = data.get("connection", {}).get("glucoseMeasurement", {})
+    if current_measurement:
+        # add current measurement to the beginning of the list
+        graph.append(current_measurement)
     readings = []
     for item in graph:
         ts_str = item.get('Timestamp')

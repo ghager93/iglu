@@ -7,8 +7,22 @@ const GMT_TIMEZONE = 'UTC'
 function App() {
   const [remoteReadings, setRemoteReadings] = useState<Array<{value: number, timestamp: number}>>([])
 
-  // Fetch readings from DB via backend API
   const handleFetchRemote = async () => {
+    try {
+      const res = await fetch('http://localhost:8000/api/glucose-readings/remote')
+      if (!res.ok) {
+        const errBody = await res.text()
+        console.error(`Remote fetch failed with status ${res.status}:`, errBody)
+        throw new Error(`Network response was not ok: ${res.status}`)
+      }
+    } catch (err) {
+      console.error('Failed to fetch remote readings:', err)
+      alert('Error fetching remote readings')
+    }
+  }
+
+  // Fetch readings from DB via backend API
+  const handleFetchValues = async () => {
     try {
       const res = await fetch('http://localhost:8000/api/glucose-readings/db')
       if (!res.ok) {
@@ -28,7 +42,7 @@ function App() {
 
   // Automatically load readings on component mount
   useEffect(() => {
-    handleFetchRemote()
+    handleFetchValues()
   }, [])
 
   return (
