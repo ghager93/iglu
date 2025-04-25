@@ -94,14 +94,14 @@ function App() {
                 dataKey="timestamp"
                 type="number"
                 domain={["dataMin", "dataMax"]}
-                tickFormatter={(ts) =>
+                tickFormatter={(ts: number) =>
                   new Date(ts * 1000).toLocaleTimeString('en-AU', { timeZone: GMT_TIMEZONE, hour: '2-digit', minute: '2-digit' })
                 }
                 interval="preserveStartEnd"
               />
               <YAxis domain={["auto", "auto"]} />
               <Tooltip
-                labelFormatter={(ts) =>
+                labelFormatter={(ts: number) =>
                   new Date(ts * 1000).toLocaleString('en-AU', { timeZone: GMT_TIMEZONE, hour12: false })
                 }
               />
