@@ -1,15 +1,24 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request
+from fastapi.responses import StreamingResponse
+from loguru import logger
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
-from typing import List
+from typing import Annotated, List, Optional
 
 from app.db.database import get_db
-from app.models import glucose_reading as models
 from app.schemas import glucose_reading as schemas
 from app.schemas.glucose_reading import RemoteReading
-import fetch_glucose
-from loguru import logger
-from sqlalchemy.dialects.sqlite import insert as sqlite_insert
+from app.controllers.glucose_controller import (
+    list_readings,
+    bulk_create_readings,
+    remove_readings,
+    export_readings,
+    get_latest_reading,
+    fetch_remote_readings,
+    get_reading_by_id,
+    delete_reading_by_id
+)
+
+from app.db.sse_queue import sse_queue
 
 router = APIRouter(
     prefix="/glucose-readings",
@@ -17,74 +26,91 @@ router = APIRouter(
 )
 
 @router.get("/", response_model=List[schemas.GlucoseReading])
-async def get_glucose_readings(skip: int = 0, limit: int = 100, db: AsyncSession = Depends(get_db)):
-    """Get all glucose readings"""
-    result = await db.execute(select(models.GlucoseReading).offset(skip).limit(limit))
-    return result.scalars().all()
+async def get_glucose_readings(
+    from_ts: Optional[int] = Query(None, alias="from", description="Epoch start timestamp (inclusive)"),
+    to_ts: Optional[int] = Query(None, alias="to", description="Epoch end timestamp (inclusive)"),
+    skip: int = 0,
+    limit: int = 100,
+    db: AsyncSession = Depends(get_db)
+):
+    """Get glucose readings from DB, optionally filtering by from/to epoch timestamps"""
+    return await list_readings(db, from_ts, to_ts, skip, limit)
 
-@router.post("/", response_model=schemas.GlucoseReading)
-async def create_glucose_reading(reading: schemas.GlucoseReadingCreate, db: AsyncSession = Depends(get_db)):
-    """Create a new glucose reading"""
-    db_reading = models.GlucoseReading(
-        level=reading.level,
-        notes=reading.notes
-    )
-    db.add(db_reading)
-    await db.commit()
-    await db.refresh(db_reading)
-    return db_reading
+@router.put("/", response_model=list[schemas.GlucoseReading])
+async def create_glucose_readings(
+    readings: Annotated[list[schemas.GlucoseReadingCreate], Body(embed=True)],
+    db: AsyncSession = Depends(get_db)
+):
+    """Create new glucose readings"""
+    return await bulk_create_readings(db, readings)
+
+@router.delete("/", response_model=list[schemas.GlucoseReading])
+async def delete_glucose_readings(
+    ids: Optional[list[str]] = Query(None, description="List of glucose reading IDs to delete"),
+    from_ts: Optional[int] = Query(None, alias="from", description="Epoch start timestamp (inclusive)"),
+    to_ts: Optional[int] = Query(None, alias="to", description="Epoch end timestamp (inclusive)"),
+    skip: int = 0,
+    limit: int = 100,
+    db: AsyncSession = Depends(get_db)
+):
+    """Delete glucose readings from DB, optionally filtering by from/to epoch timestamps"""
+    return await remove_readings(db, ids, from_ts, to_ts)
+
+@router.get("/export")
+async def export_glucose_readings(
+    from_ts: Optional[int] = Query(None, alias="from", description="Epoch start timestamp (inclusive)"),
+    to_ts: Optional[int] = Query(None, alias="to", description="Epoch end timestamp (inclusive)"),
+    format: str = Query("json", description="Export format (json, csv, html)"),
+    skip: int = 0,
+    limit: int = 100,
+    db: AsyncSession = Depends(get_db)
+):
+    """Export readings in bulk. Can be exported in json, csv, or html format."""
+    return await export_readings(db, format, from_ts, to_ts, skip, limit)
+
+@router.get("/latest", response_model=schemas.GlucoseReading)
+async def get_latest_glucose_reading(db: AsyncSession = Depends(get_db)):
+    """Get the latest glucose reading from the database"""
+    reading = await get_latest_reading(db)
+    if reading is None:
+        raise HTTPException(status_code=404, detail="No readings found")
+    return reading
 
 async def fetch_and_save_remote_readings(db: AsyncSession) -> List[RemoteReading]:
-    """Fetch remote glucose readings and upsert into the database."""
-    logger.debug("fetch_and_save_remote_readings called")
-    token = await fetch_glucose.get_token()
-    logger.debug(f"Retrieved token: {token[:8]}... (truncated)")
-    readings = await fetch_glucose.fetch_glucose_readings(token)
-    rows = [{"value": r["value"], "timestamp": r["timestamp"]} for r in readings]
-    if rows:
-        stmt = sqlite_insert(models.GlucoseReading).values(rows)
-        stmt = stmt.on_conflict_do_update(
-            index_elements=["timestamp"],
-            set_={"value": stmt.excluded["value"]}
-        )
-        await db.execute(stmt)
-        await db.commit()
-    logger.info(f"Successfully fetched {len(readings)} remote readings")
-    return readings
+    """Fetch remote glucose readings and upsert into the database via service"""
+    return await fetch_remote_readings(db)
 
-@router.get("/remote", response_model=List[RemoteReading])
-async def get_remote_readings(db: AsyncSession = Depends(get_db)):
-    """Fetch glucose readings from remote API and return list of RemoteReading"""
-    logger.debug("get_remote_readings called")
-    try:
-        return await fetch_and_save_remote_readings(db)
-    except Exception as e:
-        logger.exception("Error in get_remote_readings")
-        raise HTTPException(status_code=500, detail=str(e))
+@router.post("/import", response_model=list[schemas.GlucoseReading])
+async def import_glucose_readings(
+    readings: Annotated[list[schemas.GlucoseReadingCreate], Body(embed=True)],
+    format: Annotated[str, Body(embed=True)] = "json",
+    db: AsyncSession = Depends(get_db)
+):
+    """Import glucose readings in bulk"""
+    return await bulk_create_readings(db, readings, format)
 
-@router.get("/db", response_model=List[schemas.RemoteReading])
-async def get_db_readings(db: AsyncSession = Depends(get_db)):
-    """Get glucose readings from DB with epoch timestamp"""
-    result = await db.execute(select(models.GlucoseReading))
-    readings = result.scalars().all()
-    return readings
+@router.get("/stream")
+async def stream_readings(
+    request: Request,
+):
+    """Stream events from the server"""
+    async def event_stream():
+        while True:
+            logger.debug("Waiting for new data...")
+            if await request.is_disconnected():
+                break
+            
+            data = await sse_queue.get()
+            yield f"data: {data}\n\n"
+        
+    return StreamingResponse(event_stream(), media_type="text/event-stream")
 
 @router.get("/{reading_id}", response_model=schemas.GlucoseReading)
 async def get_glucose_reading(reading_id: int, db: AsyncSession = Depends(get_db)):
     """Get a specific glucose reading by ID"""
-    result = await db.execute(select(models.GlucoseReading).filter(models.GlucoseReading.id == reading_id))
-    db_reading = result.scalars().first()
-    if db_reading is None:
-        raise HTTPException(status_code=404, detail="Reading not found")
-    return db_reading
+    return await get_reading_by_id(db, reading_id)
 
 @router.delete("/{reading_id}")
 async def delete_glucose_reading(reading_id: int, db: AsyncSession = Depends(get_db)):
     """Delete a glucose reading"""
-    result = await db.execute(select(models.GlucoseReading).filter(models.GlucoseReading.id == reading_id))
-    db_reading = result.scalars().first()
-    if db_reading is None:
-        raise HTTPException(status_code=404, detail="Reading not found")
-    await db.delete(db_reading)
-    await db.commit()
-    return {"message": "Reading deleted successfully"}
+    return await delete_reading_by_id(db, reading_id)

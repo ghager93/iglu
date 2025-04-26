@@ -1,11 +1,16 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import select
 from app.api import glucose_readings
 import asyncio
 from app.db.database import SessionLocal
 from app.api.glucose_readings import fetch_and_save_remote_readings
 from loguru import logger
+from app.db.sse_queue import sse_queue
+from app.repositories.glucose_repository import upsert_readings
+from app.models.glucose_reading import GlucoseReading
+import fetch_glucose
 
 
 @asynccontextmanager
@@ -15,11 +20,28 @@ async def lifespan(app: FastAPI):
         while True:
             try:
                 async with SessionLocal() as db:
-                    await fetch_and_save_remote_readings(db)
+                    # await fetch_and_save_remote_readings(db)
+                    
+                    token = await fetch_glucose.get_token()
+                    readings = await fetch_glucose.fetch_glucose_readings(token)
+                    data = [dict(value=r["value"], timestamp=r["timestamp"]) for r in readings]
+                    
+                    stmt = select(GlucoseReading).where(
+                        GlucoseReading.timestamp >= data[0]["timestamp"],
+                    )
+                    result = await db.execute(stmt)
+                    db_data = [(r.value, r.timestamp) for r in result.scalars().all()]
+                    db_data = sorted(db_data, key=lambda x: x[1])
+                    
+                    new_data = list(set((r["value"], r["timestamp"]) for r in data) - set(db_data))      
+                    if new_data:
+                        await sse_queue.put(new_data)
+                    if data:
+                        await upsert_readings(db, data)
+                    logger.info(f"Service: fetched and saved {len(readings)} remote readings")
             except Exception:
                 logger.exception("Error in scheduled fetch_and_save_remote_readings")
             await asyncio.sleep(60)
-    # asyncio.create_task(fetch_loop())
     fetch_loop_task = asyncio.ensure_future(fetch_loop())
     yield
     # Cleanup code can be added here if needed

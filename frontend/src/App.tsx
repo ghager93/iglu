@@ -24,13 +24,22 @@ function App() {
   // Fetch readings from DB via backend API
   const handleFetchValues = async () => {
     try {
-      const res = await fetch('http://localhost:8000/api/glucose-readings/db')
+      const res = await fetch('http://localhost:8000/api/glucose-readings/')
+      console.log('Response:', res)
       if (!res.ok) {
         const errBody = await res.text()
         console.error(`Remote fetch failed with status ${res.status}:`, errBody)
         throw new Error(`Network response was not ok: ${res.status}`)
       }
-      const data: Array<{value: number, timestamp: number}> = await res.json()
+      const dataRaw: Array<{value: number, timestamp: number | string}> = await res.json()
+      // Convert ISO timestamp strings to numeric epoch seconds
+      const data = dataRaw.map(r => ({
+        value: r.value,
+        timestamp: typeof r.timestamp === 'string'
+          ? Math.floor(new Date(r.timestamp).getTime() / 1000)
+          : r.timestamp
+      }))
+      console.log('Data:', data)
       // sort readings newest first
       const sorted = data.sort((a, b) => b.timestamp - a.timestamp)
       setRemoteReadings(sorted)
@@ -43,6 +52,24 @@ function App() {
   // Automatically load readings on component mount
   useEffect(() => {
     handleFetchValues()
+  }, [])
+
+  // Real-time stream data
+  const [testData, setTestData] = useState<string[]>([])
+  useEffect(() => {
+    const eventSource = new EventSource('http://localhost:8000/api/glucose-readings/stream')
+    eventSource.onmessage = (event) => {
+      console.log('Received SSE:', event.data)
+      const newEntry: string = event.data
+      setTestData(prev => [...prev, newEntry])
+    }
+    eventSource.onerror = (err) => {
+      console.error('SSE connection error:', err)
+      eventSource.close()
+    }
+    return () => {
+      eventSource.close()
+    }
   }, [])
 
   return (
@@ -93,7 +120,7 @@ function App() {
               <XAxis
                 dataKey="timestamp"
                 type="number"
-                domain={["dataMin", "dataMax"]}
+                domain={["min", "max"]}
                 tickFormatter={(ts: number) =>
                   new Date(ts * 1000).toLocaleTimeString('en-AU', { timeZone: GMT_TIMEZONE, hour: '2-digit', minute: '2-digit' })
                 }
@@ -108,6 +135,15 @@ function App() {
               <Line type="monotone" dataKey="value" stroke="#8884d8" dot={false} />
             </LineChart>
           </ResponsiveContainer>
+
+          <h2>Test</h2>
+          <ul>
+            {testData.map( data => (
+              <li key={data}>
+                {data}
+              </li>
+            ))}
+          </ul>
         </div>
       )}
     </div>

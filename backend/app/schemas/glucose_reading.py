@@ -3,15 +3,14 @@ from typing import Optional
 from datetime import datetime
 
 class GlucoseReadingBase(BaseModel):
-    level: float = Field(..., description="Blood glucose level in mg/dL", gt=0)
-    notes: Optional[str] = Field(None, description="Optional notes about the reading")
+    value: float = Field(..., description="Blood glucose level in mmol/L", gt=0)
+    timestamp: datetime = Field(..., description="Timestamp of the reading in seconds since epoch")
 
 class GlucoseReadingCreate(GlucoseReadingBase):
     pass
 
 class GlucoseReading(GlucoseReadingBase):
     id: int
-    timestamp: datetime
     
     class Config:
         orm_mode = True
