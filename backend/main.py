@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+import json
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import select
@@ -32,10 +33,9 @@ async def lifespan(app: FastAPI):
                     result = await db.execute(stmt)
                     db_data = [(r.value, r.timestamp) for r in result.scalars().all()]
                     db_data = sorted(db_data, key=lambda x: x[1])
-                    
-                    new_data = list(set((r["value"], r["timestamp"]) for r in data) - set(db_data))      
+                    new_data = list({"value": e[0], "timestamp": e[1]} for e in set((r["value"], r["timestamp"]) for r in data) - set(db_data))      
                     if new_data:
-                        await sse_queue.put(new_data)
+                        await sse_queue.put(json.dumps(new_data))
                     if data:
                         await upsert_readings(db, data)
                     logger.info(f"Service: fetched and saved {len(readings)} remote readings")

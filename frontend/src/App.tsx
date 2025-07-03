@@ -55,13 +55,20 @@ function App() {
   }, [])
 
   // Real-time stream data
-  const [testData, setTestData] = useState<string[]>([])
+  // const [testData, setTestData] = useState<string[]>([])
   useEffect(() => {
     const eventSource = new EventSource('http://localhost:8000/api/glucose-readings/stream')
     eventSource.onmessage = (event) => {
       console.log('Received SSE:', event.data)
-      const newEntry: string = event.data
-      setTestData(prev => [...prev, newEntry])
+      console.log('length of readings:', remoteReadings.length)
+      // const newEntry: string = event.data
+      // setTestData(prev => [...prev, newEntry])
+      try {
+        const parsed: Array<{value: number, timestamp: number}> = JSON.parse(event.data)
+        setRemoteReadings(prev => [...prev, ...parsed])
+      } catch (err) {
+        console.error('Failed to parse SSE data:', err)
+      }
     }
     eventSource.onerror = (err) => {
       console.error('SSE connection error:', err)
@@ -135,7 +142,7 @@ function App() {
               <Line type="monotone" dataKey="value" stroke="#8884d8" dot={false} />
             </LineChart>
           </ResponsiveContainer>
-
+{/* 
           <h2>Test</h2>
           <ul>
             {testData.map( data => (
@@ -143,7 +150,7 @@ function App() {
                 {data}
               </li>
             ))}
-          </ul>
+          </ul> */}
         </div>
       )}
     </div>

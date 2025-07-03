@@ -1,24 +1,25 @@
-from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request
-from fastapi.responses import StreamingResponse
-from loguru import logger
-from sqlalchemy.ext.asyncio import AsyncSession
+import json
 from typing import Annotated, List, Optional
 
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request
+from fastapi.responses import Response, StreamingResponse
+from loguru import logger
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.controllers.glucose_controller import (
+    bulk_create_readings,
+    delete_reading_by_id,
+    export_readings,
+    fetch_remote_readings,
+    get_latest_reading,
+    get_reading_by_id,
+    list_readings,
+    remove_readings,
+)
 from app.db.database import get_db
+from app.db.sse_queue import sse_queue
 from app.schemas import glucose_reading as schemas
 from app.schemas.glucose_reading import RemoteReading
-from app.controllers.glucose_controller import (
-    list_readings,
-    bulk_create_readings,
-    remove_readings,
-    export_readings,
-    get_latest_reading,
-    fetch_remote_readings,
-    get_reading_by_id,
-    delete_reading_by_id
-)
-
-from app.db.sse_queue import sse_queue
 
 router = APIRouter(
     prefix="/glucose-readings",
@@ -66,7 +67,15 @@ async def export_glucose_readings(
     db: AsyncSession = Depends(get_db)
 ):
     """Export readings in bulk. Can be exported in json, csv, or html format."""
-    return await export_readings(db, format, from_ts, to_ts, skip, limit)
+    result = await export_readings(db, format, from_ts, to_ts, skip, limit)
+    
+    # Return appropriate response based on format
+    if format == "html":
+        return Response(content=result, media_type="text/html")
+    elif format == "csv":
+        return Response(content=result, media_type="text/csv")
+    else:  # json format
+        return result
 
 @router.get("/latest", response_model=schemas.GlucoseReading)
 async def get_latest_glucose_reading(db: AsyncSession = Depends(get_db)):
@@ -101,7 +110,8 @@ async def stream_readings(
                 break
             
             data = await sse_queue.get()
-            yield f"data: {data}\n\n"
+            # send JSON-formatted data for easier client parsing
+            yield f"data: {json.dumps(data)}\n\n"
         
     return StreamingResponse(event_stream(), media_type="text/event-stream")
 

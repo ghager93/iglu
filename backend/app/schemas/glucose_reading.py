@@ -1,10 +1,9 @@
 from pydantic import BaseModel, Field
-from typing import Optional
-from datetime import datetime
+
 
 class GlucoseReadingBase(BaseModel):
     value: float = Field(..., description="Blood glucose level in mmol/L", gt=0)
-    timestamp: datetime = Field(..., description="Timestamp of the reading in seconds since epoch")
+    timestamp: int = Field(..., description="Timestamp of the reading in seconds since epoch")
 
 class GlucoseReadingCreate(GlucoseReadingBase):
     pass

@@ -1,12 +1,17 @@
 from typing import List, Optional
-from sqlalchemy.ext.asyncio import AsyncSession
-from app.models.glucose_reading import GlucoseReading as GlucoseReadingModel
-from app.schemas.glucose_reading import GlucoseReadingCreate, RemoteReading
-from app.repositories.glucose_repository import (
-    fetch_readings, fetch_latest, upsert_readings, delete_readings
-)
+
 import fetch_glucose
+from app.models.glucose_reading import GlucoseReading as GlucoseReadingModel
+from app.repositories.glucose_repository import (
+    delete_readings,
+    fetch_latest,
+    fetch_readings,
+    upsert_readings,
+)
+from app.schemas.glucose_reading import GlucoseReadingCreate, RemoteReading
 from loguru import logger
+from sqlalchemy.ext.asyncio import AsyncSession
+
 
 async def get_glucose_readings(
     session: AsyncSession,
@@ -69,6 +74,135 @@ async def export_glucose_readings(
     if format == "json":
         return [r.__dict__ for r in readings]
     # CSV/HTML export logic to be implemented elsewhere
+    if format == "csv":
+        from datetime import datetime
+        
+        header = "ID,Glucose Value (mmol/L),Timestamp,Formatted Time\n"
+        rows = []
+        for r in readings:
+            dt = datetime.fromtimestamp(r.timestamp)
+            formatted_time = dt.strftime("%Y-%m-%d %H:%M:%S")
+            rows.append(f"{r.id},{r.value},{r.timestamp},{formatted_time}")
+        return header + "\n".join(rows)
+    if format == "html":
+        from datetime import datetime
+
+        # Create table rows with formatted timestamp
+        table_rows = ""
+        for r in readings:
+            # Convert epoch timestamp to readable format
+            dt = datetime.fromtimestamp(r.timestamp)
+            formatted_time = dt.strftime("%Y-%m-%d %H:%M:%S")
+            
+            # Color code the glucose value
+            value_color = "black"
+            if r.value < 3.9:
+                value_color = "red"  # Low
+            elif r.value > 10.0:
+                value_color = "orange"  # High
+            elif 3.9 <= r.value <= 7.8:
+                value_color = "green"  # Normal
+            
+            table_rows += f"""
+            <tr>
+                <td>{r.id}</td>
+                <td style="color: {value_color}; font-weight: bold;">{r.value} mmol/L</td>
+                <td>{formatted_time}</td>
+            </tr>
+            """
+        
+        html_export = f"""
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Glucose Readings Export</title>
+            <style>
+                body {{
+                    font-family: Arial, sans-serif;
+                    margin: 20px;
+                    background-color: #f5f5f5;
+                }}
+                .container {{
+                    max-width: 1200px;
+                    margin: 0 auto;
+                    background-color: white;
+                    padding: 20px;
+                    border-radius: 8px;
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                }}
+                h1 {{
+                    color: #333;
+                    text-align: center;
+                    margin-bottom: 30px;
+                }}
+                table {{
+                    width: 100%;
+                    border-collapse: collapse;
+                    margin-top: 20px;
+                    background-color: white;
+                }}
+                th, td {{
+                    padding: 12px;
+                    text-align: left;
+                    border-bottom: 1px solid #ddd;
+                }}
+                th {{
+                    background-color: #4CAF50;
+                    color: white;
+                    font-weight: bold;
+                }}
+                tr:nth-child(even) {{
+                    background-color: #f2f2f2;
+                }}
+                tr:hover {{
+                    background-color: #e8f5e8;
+                }}
+                .summary {{
+                    margin-top: 20px;
+                    padding: 15px;
+                    background-color: #e8f5e8;
+                    border-radius: 5px;
+                }}
+                .timestamp {{
+                    color: #666;
+                    font-size: 0.9em;
+                    text-align: center;
+                    margin-top: 20px;
+                }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <h1>📊 Glucose Readings Report</h1>
+                
+                <div class="summary">
+                    <strong>Summary:</strong> {len(readings)} readings exported
+                    {f" (from {datetime.fromtimestamp(from_ts).strftime('%Y-%m-%d %H:%M:%S') if from_ts else 'beginning'} to {datetime.fromtimestamp(to_ts).strftime('%Y-%m-%d %H:%M:%S') if to_ts else 'now'})" if from_ts or to_ts else ""}
+                </div>
+                
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Glucose Value</th>
+                            <th>Timestamp</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {table_rows}
+                    </tbody>
+                </table>
+                
+                <div class="timestamp">
+                    Report generated on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+        return html_export
     raise ValueError("Unsupported format")
 
 async def get_latest_glucose_reading(
