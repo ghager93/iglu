@@ -18,9 +18,10 @@ async def get_glucose_readings(
     from_ts: Optional[int] = None,
     to_ts: Optional[int] = None,
     skip: int = 0,
-    limit: Optional[int] = None
+    limit: Optional[int] = None,
+    order: Optional[str] = "asc"
 ) -> List[GlucoseReadingModel]:
-    return await fetch_readings(session, from_ts, to_ts, skip, limit)
+    return await fetch_readings(session, from_ts, to_ts, skip, limit, order)
 
 async def create_glucose_reading(
     session: AsyncSession,

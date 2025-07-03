@@ -10,7 +10,8 @@ async def fetch_readings(
     from_ts: Optional[int] = None,
     to_ts: Optional[int] = None,
     skip: int = 0,
-    limit: Optional[int] = None
+    limit: Optional[int] = None,
+    order: Optional[str] = "asc"
 ) -> List[GlucoseReadingModel]:
     stmt = select(GlucoseReadingModel)
     if from_ts is not None:
@@ -20,6 +21,10 @@ async def fetch_readings(
     stmt = stmt.offset(skip)
     if limit is not None:
         stmt = stmt.limit(limit)
+    if order == "desc":
+        stmt = stmt.order_by(GlucoseReadingModel.timestamp.desc())
+    else:
+        stmt = stmt.order_by(GlucoseReadingModel.timestamp.asc())
     result = await session.execute(stmt)
     return result.scalars().all()
 
@@ -47,7 +52,7 @@ async def delete_readings(
     session: AsyncSession,
     ids: Optional[List[int]] = None,
     from_ts: Optional[int] = None,
-    to_ts: Optional[int] = None
+    to_ts: Optional[int] = None,
 ) -> List[GlucoseReadingModel]:
     query = await fetch_readings(session, from_ts, to_ts)
     if ids:

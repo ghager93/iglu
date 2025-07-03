@@ -30,12 +30,13 @@ router = APIRouter(
 async def get_glucose_readings(
     from_ts: Optional[int] = Query(None, alias="from", description="Epoch start timestamp (inclusive)"),
     to_ts: Optional[int] = Query(None, alias="to", description="Epoch end timestamp (inclusive)"),
-    skip: int = 0,
-    limit: int = 100,
+    skip: Optional[int] = Query(0, description="Skip the first n readings"),
+    limit: Optional[int] = Query(100, description="Limit the number of readings to return"),
+    order: Optional[str] = Query("asc", description="Order of readings (asc or desc)"),
     db: AsyncSession = Depends(get_db)
 ):
     """Get glucose readings from DB, optionally filtering by from/to epoch timestamps"""
-    return await list_readings(db, from_ts, to_ts, skip, limit)
+    return await list_readings(db, from_ts, to_ts, skip, limit, order)
 
 @router.put("/", response_model=list[schemas.GlucoseReading])
 async def create_glucose_readings(

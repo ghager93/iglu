@@ -1,26 +1,15 @@
-# Diabetes Management API - Curl Commands
-# Base URL: http://localhost:8000
-# Copy and paste these commands or import into Postman/Insomnia
-
-# Root Endpoint
 curl http://localhost:8000/
 
-# Get All Glucose Readings
 curl http://localhost:8000/api/glucose-readings/
 
-# Get Glucose Readings with Pagination
 curl "http://localhost:8000/api/glucose-readings/?skip=0&limit=10"
 
-# Get Glucose Readings by Time Range
 curl "http://localhost:8000/api/glucose-readings/?from=1640995200&to=1641081600"
 
-# Get Latest Glucose Reading
 curl http://localhost:8000/api/glucose-readings/latest
 
-# Get Specific Glucose Reading by ID
 curl http://localhost:8000/api/glucose-readings/123
 
-# Create New Glucose Readings
 curl -X PUT http://localhost:8000/api/glucose-readings/ \
   -H "Content-Type: application/json" \
   -d '{
@@ -36,7 +25,6 @@ curl -X PUT http://localhost:8000/api/glucose-readings/ \
     ]
   }'
 
-# Import Glucose Readings
 curl -X POST http://localhost:8000/api/glucose-readings/import \
   -H "Content-Type: application/json" \
   -d '{
@@ -49,35 +37,24 @@ curl -X POST http://localhost:8000/api/glucose-readings/import \
     "format": "json"
   }'
 
-# Export Glucose Readings (JSON)
 curl "http://localhost:8000/api/glucose-readings/export?format=json&limit=100"
 
-# Export Glucose Readings (CSV)
 curl "http://localhost:8000/api/glucose-readings/export?format=csv&limit=100"
 
-# Export Glucose Readings (HTML)
 curl "http://localhost:8000/api/glucose-readings/export?format=html&limit=100"
 
-# Stream Real-time Updates
 curl http://localhost:8000/api/glucose-readings/stream
 
-# Delete Specific Glucose Reading
 curl -X DELETE http://localhost:8000/api/glucose-readings/123
 
-# Delete Glucose Readings by Time Range
 curl -X DELETE "http://localhost:8000/api/glucose-readings/?from=1640995200&to=1641081600"
 
-# Delete Glucose Readings by IDs
 curl -X DELETE "http://localhost:8000/api/glucose-readings/?ids=123,456,789"
 
-# Fetch Readings from LibreView
 curl http://localhost:8000/api/libre-view/
 
-# View Interactive API Documentation
 curl http://localhost:8000/docs
 
-# Get OpenAPI Schema
 curl http://localhost:8000/openapi.json
 
-# Example with Multiple Parameters
-curl "http://localhost:8000/api/glucose-readings/?from=1640995200&to=1641081600&skip=10&limit=50" 
+curl "http://localhost:8000/api/glucose-readings/?from=1640995200&to=1641081600&skip=10&limit=50"
