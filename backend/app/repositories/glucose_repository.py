@@ -1,7 +1,9 @@
 from typing import List, Optional
+
+from app.models.glucose_reading import GlucoseReading as GlucoseReadingModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.models.glucose_reading import GlucoseReading as GlucoseReadingModel
+
 
 async def fetch_readings(
     session: AsyncSession,
@@ -16,8 +18,8 @@ async def fetch_readings(
     if to_ts is not None:
         stmt = stmt.filter(GlucoseReadingModel.timestamp <= to_ts)
     stmt = stmt.offset(skip)
-    # if limit is not None:
-    #     stmt = stmt.limit(limit)
+    if limit is not None:
+        stmt = stmt.limit(limit)
     result = await session.execute(stmt)
     return result.scalars().all()
 
