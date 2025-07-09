@@ -38,7 +38,9 @@ async def get_glucose_readings(
             interval = 86400
         case _:
             raise ValueError(f"Invalid granularity: {granularity}")
-        
+    
+    if order == "desc":
+        readings.reverse()
     delta = interval / 2
     if readings[0].timestamp % interval > delta:
         current_interval = readings[0].timestamp - readings[0].timestamp % interval + interval
@@ -68,6 +70,8 @@ async def get_glucose_readings(
             current_closest = None
             current_interval += interval
             current_delta = delta
+    if order == "desc":
+        gran_readings.reverse()
     return gran_readings
 
 async def create_glucose_reading(

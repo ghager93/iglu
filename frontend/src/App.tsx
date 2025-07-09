@@ -22,9 +22,14 @@ function App() {
   }
 
   // Fetch readings from DB via backend API
-  const handleFetchValues = async () => {
+  const handleFetchValues = async (from?: number) => {
     try {
-      const res = await fetch('http://localhost:8000/api/glucose-readings?limit=100&order=desc')
+      let res
+      if (from) {
+        res = await fetch(`http://localhost:8000/api/glucose-readings?limit=100&order=desc&granularity=1m&from=${from}`)
+      } else {
+        res = await fetch('http://localhost:8000/api/glucose-readings?limit=100&order=desc&granularity=1m')
+      }
       console.log('Response:', res)
       if (!res.ok) {
         const errBody = await res.text()
@@ -78,6 +83,14 @@ function App() {
       eventSource.close()
     }
   }, [remoteReadings])
+
+  // Call for new readings every minute
+  useEffect(() => {
+    const interval = setInterval(() => {
+      handleFetchValues(from=Date.now()/1000)
+    }, 60000)
+    return () => clearInterval(interval)
+  }, [])
 
   return (
     <div className="container">
