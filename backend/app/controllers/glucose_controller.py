@@ -18,9 +18,10 @@ async def list_readings(
     to_ts: Optional[int] = None,
     skip: int = 0,
     limit: int = 100,
-    order: Optional[str] = "asc"
+    order: Optional[str] = "asc",
+    granularity: str = "1m"
 ) -> List[GlucoseReadingSchema]:
-    return await svc_get_readings(session, from_ts, to_ts, skip, limit, order)
+    return await svc_get_readings(session, from_ts, to_ts, skip, limit, order, granularity)
 
 async def bulk_create_readings(
     session: AsyncSession,
@@ -43,9 +44,10 @@ async def export_readings(
     from_ts: Optional[int] = None,
     to_ts: Optional[int] = None,
     skip: int = 0,
-    limit: int = 100
+    limit: int = 100,
+    granularity: str = "all"
 ):
-    return await svc_export(session, format, from_ts, to_ts, skip, limit)
+    return await svc_export(session, format, from_ts, to_ts, skip, limit, granularity)
 
 async def get_latest_reading(
     session: AsyncSession

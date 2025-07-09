@@ -11,7 +11,7 @@ async def fetch_readings(
     to_ts: Optional[int] = None,
     skip: int = 0,
     limit: Optional[int] = None,
-    order: Optional[str] = "asc"
+    order: Optional[str] = "asc",
 ) -> List[GlucoseReadingModel]:
     stmt = select(GlucoseReadingModel)
     if from_ts is not None:

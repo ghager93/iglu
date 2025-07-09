@@ -1,3 +1,4 @@
+import copy
 from typing import List, Optional
 
 import fetch_glucose
@@ -19,9 +20,55 @@ async def get_glucose_readings(
     to_ts: Optional[int] = None,
     skip: int = 0,
     limit: Optional[int] = None,
-    order: Optional[str] = "asc"
+    order: Optional[str] = "asc",
+    granularity: str = "all"
 ) -> List[GlucoseReadingModel]:
-    return await fetch_readings(session, from_ts, to_ts, skip, limit, order)
+    readings = await fetch_readings(session, from_ts, to_ts, skip, limit, order)
+    if not readings:
+        return []
+    match (granularity):
+        case "all":
+            return readings
+        case "1m":
+            interval = 60
+        case "1h":
+            # TODO: Should calculate average of readings for hour and day granularity
+            interval = 3600
+        case "1d":
+            interval = 86400
+        case _:
+            raise ValueError(f"Invalid granularity: {granularity}")
+        
+    delta = interval / 2
+    if readings[0].timestamp % interval > delta:
+        current_interval = readings[0].timestamp - readings[0].timestamp % interval + interval
+    else:
+        current_interval = readings[0].timestamp - readings[0].timestamp % interval
+    gran_readings = []
+    current_delta = delta
+    current_closest = None
+    i = 0
+    while i < len(readings):
+        reading = readings[i]
+        if reading.timestamp - current_interval < -delta:
+            i += 1
+            continue
+        if abs(reading.timestamp - current_interval) < current_delta:
+            current_delta = abs(reading.timestamp - current_interval)
+            current_closest = reading
+            current_closest.timestamp = current_interval
+            i += 1
+        else:
+            if current_closest is not None:
+                gran_readings.append(GlucoseReadingModel(
+                    id=current_closest.id,
+                    value=current_closest.value,
+                    timestamp=current_closest.timestamp
+                ))
+            current_closest = None
+            current_interval += interval
+            current_delta = delta
+    return gran_readings
 
 async def create_glucose_reading(
     session: AsyncSession,

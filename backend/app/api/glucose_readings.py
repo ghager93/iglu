@@ -33,10 +33,11 @@ async def get_glucose_readings(
     skip: Optional[int] = Query(0, description="Skip the first n readings"),
     limit: Optional[int] = Query(100, description="Limit the number of readings to return"),
     order: Optional[str] = Query("asc", description="Order of readings (asc or desc)"),
+    granularity: Optional[str] = Query("1m", description="Granularity of readings (all, 1m, 1h, 1d). Default is 1m."),
     db: AsyncSession = Depends(get_db)
 ):
     """Get glucose readings from DB, optionally filtering by from/to epoch timestamps"""
-    return await list_readings(db, from_ts, to_ts, skip, limit, order)
+    return await list_readings(db, from_ts, to_ts, skip, limit, order, granularity)
 
 @router.put("/", response_model=list[schemas.GlucoseReading])
 async def create_glucose_readings(
@@ -65,10 +66,11 @@ async def export_glucose_readings(
     format: str = Query("json", description="Export format (json, csv, html)"),
     skip: int = 0,
     limit: int = 100,
+    granularity: str = Query("all", description="Granularity of readings (all,1m, 1h, 1d). If not provided, all readings will be returned."),
     db: AsyncSession = Depends(get_db)
 ):
     """Export readings in bulk. Can be exported in json, csv, or html format."""
-    result = await export_readings(db, format, from_ts, to_ts, skip, limit)
+    result = await export_readings(db, format, from_ts, to_ts, skip, limit, granularity)
     
     # Return appropriate response based on format
     if format == "html":
