@@ -24,7 +24,7 @@ function App() {
   // Fetch readings from DB via backend API
   const handleFetchValues = async () => {
     try {
-      const res = await fetch('http://localhost:8000/api/glucose-readings/')
+      const res = await fetch('http://localhost:8000/api/glucose-readings?limit=100&order=desc')
       console.log('Response:', res)
       if (!res.ok) {
         const errBody = await res.text()
@@ -40,9 +40,7 @@ function App() {
           : r.timestamp
       }))
       console.log('Data:', data)
-      // sort readings newest first
-      const sorted = data.sort((a, b) => b.timestamp - a.timestamp)
-      setRemoteReadings(sorted)
+      setRemoteReadings(data)
     } catch (err) {
       console.error('Failed to fetch remote readings:', err)
       alert('Error fetching remote readings')
@@ -64,8 +62,10 @@ function App() {
       // const newEntry: string = event.data
       // setTestData(prev => [...prev, newEntry])
       try {
-        const parsed: Array<{value: number, timestamp: number}> = JSON.parse(event.data)
-        setRemoteReadings(prev => [...prev, ...parsed])
+        // Have to parse twice to get the correct format
+        const parsed: Array<{value: number, timestamp: number}> = JSON.parse(JSON.parse(event.data))
+        console.log('Parsed:', parsed)
+        setRemoteReadings(prev => [...parsed, ...prev])
       } catch (err) {
         console.error('Failed to parse SSE data:', err)
       }
@@ -77,7 +77,7 @@ function App() {
     return () => {
       eventSource.close()
     }
-  }, [])
+  }, [remoteReadings])
 
   return (
     <div className="container">
