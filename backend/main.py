@@ -1,17 +1,18 @@
-from contextlib import asynccontextmanager
+import asyncio
 import json
+from contextlib import asynccontextmanager
+
+import fetch_glucose
+from app.api import glucose_readings
+from app.api.glucose_readings import fetch_and_save_remote_readings
+from app.db.database import SessionLocal
+from app.db.sse_queue import sse_queue
+from app.models.glucose_reading import GlucoseReading
+from app.repositories.glucose_repository import upsert_readings
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy import select
-from app.api import glucose_readings
-import asyncio
-from app.db.database import SessionLocal
-from app.api.glucose_readings import fetch_and_save_remote_readings
 from loguru import logger
-from app.db.sse_queue import sse_queue
-from app.repositories.glucose_repository import upsert_readings
-from app.models.glucose_reading import GlucoseReading
-import fetch_glucose
+from sqlalchemy import select
 
 
 @asynccontextmanager
@@ -25,7 +26,7 @@ async def lifespan(app: FastAPI):
                     
                     token = await fetch_glucose.get_token()
                     readings = await fetch_glucose.fetch_glucose_readings(token)
-                    data = [dict(value=r["value"], timestamp=r["timestamp"]) for r in readings]
+                    data = sorted([dict(value=r["value"], timestamp=r["timestamp"]) for r in readings], key=lambda x: x["timestamp"])
                     
                     stmt = select(GlucoseReading).where(
                         GlucoseReading.timestamp >= data[0]["timestamp"],
@@ -35,7 +36,7 @@ async def lifespan(app: FastAPI):
                     db_data = sorted(db_data, key=lambda x: x[1])
                     new_data = list({"value": e[0], "timestamp": e[1]} for e in set((r["value"], r["timestamp"]) for r in data) - set(db_data))      
                     if new_data:
-                        await sse_queue.put(json.dumps(new_data))
+                        await sse_queue.put(json.dumps([new_data[-1]]))
                     if data:
                         await upsert_readings(db, data)
                     logger.info(f"Service: fetched and saved {len(readings)} remote readings")

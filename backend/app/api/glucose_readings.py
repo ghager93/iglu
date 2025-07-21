@@ -26,7 +26,7 @@ router = APIRouter(
     tags=["glucose-readings"],
 )
 
-@router.get("/", response_model=List[schemas.GlucoseReading])
+@router.get("/", response_model=List[schemas.GlucoseReadingResponse])
 async def get_glucose_readings(
     from_ts: Optional[int] = Query(None, alias="from", description="Epoch start timestamp (inclusive)"),
     to_ts: Optional[int] = Query(None, alias="to", description="Epoch end timestamp (inclusive)"),
@@ -39,7 +39,7 @@ async def get_glucose_readings(
     """Get glucose readings from DB, optionally filtering by from/to epoch timestamps"""
     return await list_readings(db, from_ts, to_ts, skip, limit, order, granularity)
 
-@router.put("/", response_model=list[schemas.GlucoseReading])
+@router.put("/", response_model=list[schemas.GlucoseReadingResponse])
 async def create_glucose_readings(
     readings: Annotated[list[schemas.GlucoseReadingCreate], Body(embed=True)],
     db: AsyncSession = Depends(get_db)
@@ -47,7 +47,7 @@ async def create_glucose_readings(
     """Create new glucose readings"""
     return await bulk_create_readings(db, readings)
 
-@router.delete("/", response_model=list[schemas.GlucoseReading])
+@router.delete("/", response_model=list[schemas.GlucoseReadingResponse])
 async def delete_glucose_readings(
     ids: Optional[list[str]] = Query(None, description="List of glucose reading IDs to delete"),
     from_ts: Optional[int] = Query(None, alias="from", description="Epoch start timestamp (inclusive)"),
@@ -80,7 +80,7 @@ async def export_glucose_readings(
     else:  # json format
         return result
 
-@router.get("/latest", response_model=schemas.GlucoseReading)
+@router.get("/latest", response_model=schemas.GlucoseReadingResponse)
 async def get_latest_glucose_reading(db: AsyncSession = Depends(get_db)):
     """Get the latest glucose reading from the database"""
     reading = await get_latest_reading(db)
@@ -92,7 +92,7 @@ async def fetch_and_save_remote_readings(db: AsyncSession) -> List[RemoteReading
     """Fetch remote glucose readings and upsert into the database via service"""
     return await fetch_remote_readings(db)
 
-@router.post("/import", response_model=list[schemas.GlucoseReading])
+@router.post("/import", response_model=list[schemas.GlucoseReadingResponse])
 async def import_glucose_readings(
     readings: Annotated[list[schemas.GlucoseReadingCreate], Body(embed=True)],
     format: Annotated[str, Body(embed=True)] = "json",
@@ -118,7 +118,7 @@ async def stream_readings(
         
     return StreamingResponse(event_stream(), media_type="text/event-stream")
 
-@router.get("/{reading_id}", response_model=schemas.GlucoseReading)
+@router.get("/{reading_id}", response_model=schemas.GlucoseReadingResponse)
 async def get_glucose_reading(reading_id: int, db: AsyncSession = Depends(get_db)):
     """Get a specific glucose reading by ID"""
     return await get_reading_by_id(db, reading_id)

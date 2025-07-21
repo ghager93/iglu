@@ -69,8 +69,16 @@ function App() {
       try {
         // Have to parse twice to get the correct format
         const parsed: Array<{value: number, timestamp: number}> = JSON.parse(JSON.parse(event.data))
+        const newTimestamp = parsed[0].timestamp
         console.log('Parsed:', parsed)
-        setRemoteReadings(prev => [...parsed, ...prev])
+        if (newTimestamp > remoteReadings[0].timestamp + 30) {
+          if (newTimestamp % 60 > 30) {
+            parsed[0].timestamp = newTimestamp - (newTimestamp % 60) + 60
+          } else {
+            parsed[0].timestamp = newTimestamp - (newTimestamp % 60)
+          }
+          setRemoteReadings(prev => [parsed[0], ...prev])
+        }
       } catch (err) {
         console.error('Failed to parse SSE data:', err)
       }
