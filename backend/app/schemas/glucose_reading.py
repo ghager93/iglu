@@ -18,3 +18,6 @@ class RemoteReading(BaseModel):
     """Remote glucose reading with value and epoch timestamp."""
     value: float = Field(..., description="Glucose value")
     timestamp: int = Field(..., description="Epoch timestamp in seconds")
+    
+class GlucoseReadingResponse(GlucoseReadingBase):
+    ...

@@ -1,19 +1,20 @@
-import os
 import json
+import os
 from datetime import datetime, timezone
+
 import httpx
 from dotenv import load_dotenv
 from loguru import logger
 
 load_dotenv()
 
-HOST_URL = os.getenv("HOST_URL")
-USERNAME = os.getenv("USERNAME")
-PASSWORD = os.getenv("PASSWORD")
-USER_ID = os.getenv("USER_ID")
+LIBRE_HOST_URL = os.getenv("LIBRE_HOST_URL")
+LIBRE_EMAIL = os.getenv("LIBRE_EMAIL")
+LIBRE_PASSWORD = os.getenv("LIBRE_PASSWORD")
+LIBRE_USER_ID = os.getenv("LIBRE_USER_ID")
 
 TOKEN_ENDPOINT = "auth/login"
-GLUCOSE_ENDPOINT = f"connections/{USER_ID}/graph"
+GLUCOSE_ENDPOINT = f"connections/{LIBRE_USER_ID}/graph"
 TOKEN_FILE = "token.json"
 
 
@@ -37,15 +38,18 @@ async def get_token():
     token = load_token()
     if token:
         return token
-    url = f"{HOST_URL.rstrip('/')}/{TOKEN_ENDPOINT.lstrip('/')}"
+    if not LIBRE_HOST_URL:
+        raise ValueError("LIBRE_HOST_URL is not set")
+    url = f"{LIBRE_HOST_URL.rstrip('/')}/{TOKEN_ENDPOINT.lstrip('/')}"
     headers = {"Content-Type": "application/json", "version": "4.7.0", "product": "llu.android"}
-    payload = {"email": USERNAME, "password": PASSWORD}
+    payload = {"email": LIBRE_EMAIL, "password": LIBRE_PASSWORD}
     async with httpx.AsyncClient() as client:
         resp = await client.post(url, headers=headers, json=payload)
         resp.raise_for_status()
         data = resp.json()
     token = data.get("data", {}).get("authTicket", {}).get("token", None)
     if not token:
+        logger.error(f"Failed to retrieve token from response: {data}")
         raise ValueError("Failed to retrieve token from response")
     expiry = data.get("data", {}).get("authTicket", {}).get("expires", None)
     if not expiry:
@@ -55,7 +59,9 @@ async def get_token():
 
 
 async def fetch_glucose_readings(token: str):
-    url = f"{HOST_URL.rstrip('/')}/{GLUCOSE_ENDPOINT.lstrip('/')}"
+    if not LIBRE_HOST_URL:
+        raise ValueError("LIBRE_HOST_URL is not set")
+    url = f"{LIBRE_HOST_URL.rstrip('/')}/{GLUCOSE_ENDPOINT.lstrip('/')}"
     headers = {"Authorization": f"Bearer {token}", "version": "4.7.0", "product": "llu.android"}
     async with httpx.AsyncClient() as client:
         resp = await client.get(url, headers=headers)
