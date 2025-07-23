@@ -15,6 +15,7 @@ function App() {
   const [granularity, setGranularity] = useState<string>('1m')
   const [isLive, setIsLive] = useState<boolean>(true)
   const [currTime, setCurrTime] = useState<number>(Date.now()/1000)
+  const [lastReadingTime, setLastReadingTime] = useState<number>(0)
 
   const handleFetchReadings = async () => {
     try {
@@ -37,6 +38,7 @@ function App() {
           ? Math.floor(new Date(r.timestamp).getTime() / 1000)
           : r.timestamp
       }))
+      setLastReadingTime(data[0].timestamp)
       setReadings(data)
     } catch (err) {
       console.error('Failed to fetch readings:', err)
