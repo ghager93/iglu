@@ -16,8 +16,10 @@ from app.controllers.glucose_controller import (
     list_readings,
     remove_readings,
 )
+from app.controllers.glucose_controller import (
+    stream_readings as controller_stream_readings,
+)
 from app.db.database import get_db
-from app.db.sse_queue import sse_queue
 from app.schemas import glucose_reading as schemas
 from app.schemas.glucose_reading import RemoteReading
 
@@ -104,6 +106,8 @@ async def import_glucose_readings(
 @router.get("/stream")
 async def stream_readings(
     request: Request,
+    limit: int = 1,
+    granularity: str = "1m",
 ):
     """Stream events from the server"""
     async def event_stream():
@@ -112,7 +116,7 @@ async def stream_readings(
             if await request.is_disconnected():
                 break
             
-            data = await sse_queue.get()
+            data = await controller_stream_readings(limit=limit, granularity=granularity)
             # send JSON-formatted data for easier client parsing
             yield f"data: {json.dumps(data)}\n\n"
         

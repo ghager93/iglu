@@ -1,16 +1,18 @@
 from typing import List, Optional
+
+from app.schemas.glucose_reading import GlucoseReading as GlucoseReadingSchema
+from app.schemas.glucose_reading import GlucoseReadingCreate, RemoteReading
+from app.services.glucose_service import create_bulk_readings as svc_create_bulk
+from app.services.glucose_service import create_glucose_reading as svc_create
+from app.services.glucose_service import delete_glucose_readings as svc_delete_readings
+from app.services.glucose_service import export_glucose_readings as svc_export
+from app.services.glucose_service import fetch_and_save_remote as svc_fetch_remote
+from app.services.glucose_service import get_glucose_readings as svc_get_readings
+from app.services.glucose_service import get_latest_glucose_reading as svc_get_latest
+from app.services.glucose_service import stream_glucose_readings as svc_stream_readings
 from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.schemas.glucose_reading import GlucoseReadingCreate, RemoteReading, GlucoseReading as GlucoseReadingSchema
-from app.services.glucose_service import (
-    get_glucose_readings as svc_get_readings,
-    create_glucose_reading as svc_create,
-    create_bulk_readings as svc_create_bulk,
-    delete_glucose_readings as svc_delete_readings,
-    export_glucose_readings as svc_export,
-    get_latest_glucose_reading as svc_get_latest,
-    fetch_and_save_remote as svc_fetch_remote
-)
+
 
 async def list_readings(
     session: AsyncSession,
@@ -78,3 +80,11 @@ async def delete_reading_by_id(
 ) -> dict:
     await svc_delete_readings(session, [reading_id])
     return {"message": "Reading deleted successfully"}
+
+
+async def stream_readings(
+    session: AsyncSession,
+    limit: int = 1,
+    granularity: str = "1m"
+) -> List[GlucoseReadingSchema]:
+    return await svc_stream_readings(session, limit, granularity)

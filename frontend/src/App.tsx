@@ -14,8 +14,9 @@ function App() {
   const [to, setTo] = useState<number>(Math.floor(Date.now()/1000))
   const [granularity, setGranularity] = useState<string>('1m')
   const [isLive, setIsLive] = useState<boolean>(true)
-  const [currTime, setCurrTime] = useState<number>(Date.now()/1000)
+  const [currTime, setCurrTime] = useState<number>(Math.floor(Date.now()/1000))
   const [lastReadingTime, setLastReadingTime] = useState<number>(0)
+  const [mostRecentReading, setMostRecentReading] = useState<{value: number, timestamp: number} | null>(null)
 
   const handleFetchReadings = async () => {
     try {
@@ -40,6 +41,7 @@ function App() {
       }))
       setLastReadingTime(data[0].timestamp)
       setReadings(data)
+      console.log('Readings:', data)
     } catch (err) {
       console.error('Failed to fetch readings:', err)
       alert('Error fetching readings')
@@ -63,7 +65,7 @@ function App() {
       try {
         // Have to parse twice to get the correct format
         const parsed: Array<{value: number, timestamp: number}> = JSON.parse(JSON.parse(event.data))
-        const newTimestamp = parsed[0].timestamp
+        setMostRecentReading(parsed[0])
         console.log('Parsed:', parsed)
         // if (newTimestamp > readings[0].timestamp + 30) {
         //   if (newTimestamp % 60 > 30) {
@@ -106,7 +108,11 @@ function App() {
               : r.timestamp
           }))
           const dataNew = data.filter(r => r.timestamp > lastReadingTime)
-          setReadings(prev => [...dataNew, ...prev])
+          if (dataNew.length > 0) {
+            setLastReadingTime(dataNew[0].timestamp)
+            setReadings(prev => [...dataNew, ...prev])
+          }
+          console.log('New readings:', dataNew)
         } catch (err) {
           console.error('Failed to fetch new readings:', err)
           alert('Error fetching new readings')
@@ -162,10 +168,21 @@ function App() {
             .toLocaleString('en-AU', { timeZone: GMT_TIMEZONE })
           }</p>
 
+          <h2>Most Recent Reading (Streamed)</h2>
+          {mostRecentReading && (
+            <>
+              <p>{mostRecentReading.value} mmoL</p>
+              <p>{new Date(mostRecentReading.timestamp * 1000)
+                .toLocaleString('en-AU', { timeZone: GMT_TIMEZONE })
+              }</p>
+            </>
+          )}
+
           {/* Time since last reading */}
           <h2>Time Since Last Reading</h2>
           <p>{currTime - readings[0].timestamp + 600 * 60} seconds</p>
           <p>{currTime} {readings[0].timestamp - 600 * 60}</p>
+          <p>{lastReadingTime}</p>
 
           {/* Line chart */}
           <h2>Glucose Trend</h2>

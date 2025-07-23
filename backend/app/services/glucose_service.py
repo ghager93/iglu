@@ -1,7 +1,7 @@
-import copy
 from typing import List, Optional
 
 import fetch_glucose
+from app.db.sse_queue import sse_queue
 from app.models.glucose_reading import GlucoseReading as GlucoseReadingModel
 from app.repositories.glucose_repository import (
     delete_readings,
@@ -261,3 +261,16 @@ async def get_latest_glucose_reading(
     session: AsyncSession
 ) -> Optional[GlucoseReadingModel]:
     return await fetch_latest(session)
+
+async def stream_glucose_readings(
+    session: AsyncSession,
+) -> List[GlucoseReadingModel]:
+    reading = await sse_queue.get()
+    if reading is None:
+        raise ValueError("No reading found in SSE queue")
+    minute_timestamp = reading["timestamp"] - reading["timestamp"] % 60 + 60
+    return [GlucoseReadingModel(
+        id=reading["id"],
+        value=reading["value"],
+        timestamp=minute_timestamp
+    )]

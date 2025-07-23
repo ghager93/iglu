@@ -23,7 +23,7 @@ async def lifespan(app: FastAPI):
             try:
                 async with SessionLocal() as db:
                     # await fetch_and_save_remote_readings(db)
-                    
+                    logger.info("Service: fetching remote readings")
                     token = await fetch_glucose.get_token()
                     readings = await fetch_glucose.fetch_glucose_readings(token)
                     data = sorted([dict(value=r["value"], timestamp=r["timestamp"]) for r in readings], key=lambda x: x["timestamp"])
@@ -36,6 +36,7 @@ async def lifespan(app: FastAPI):
                     db_data = sorted(db_data, key=lambda x: x[1])
                     new_data = list({"value": e[0], "timestamp": e[1]} for e in set((r["value"], r["timestamp"]) for r in data) - set(db_data))      
                     if new_data:
+                        logger.info(f"Adding new data to SSE queue: {new_data[-1]}")
                         await sse_queue.put(json.dumps([new_data[-1]]))
                     if data:
                         await upsert_readings(db, data)
