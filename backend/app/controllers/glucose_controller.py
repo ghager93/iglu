@@ -82,9 +82,5 @@ async def delete_reading_by_id(
     return {"message": "Reading deleted successfully"}
 
 
-async def stream_readings(
-    session: AsyncSession,
-    limit: int = 1,
-    granularity: str = "1m"
-) -> List[GlucoseReadingSchema]:
-    return await svc_stream_readings(session, limit, granularity)
+async def stream_readings() -> List[dict]:
+    return await svc_stream_readings()

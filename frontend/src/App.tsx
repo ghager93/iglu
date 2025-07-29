@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import './App.css'
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
+import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 
 const GMT_TIMEZONE = 'UTC'
 
@@ -59,22 +59,11 @@ function App() {
     const eventSource = new EventSource('http://localhost:8000/api/glucose-readings/stream')
     eventSource.onmessage = (event) => {
       console.log('Received SSE:', event.data)
-      // console.log('length of readings:', remoteReadings.length)
-      // const newEntry: string = event.data
-      // setTestData(prev => [...prev, newEntry])
+      console.log('Data type:', typeof event.data)
       try {
-        // Have to parse twice to get the correct format
-        const parsed: Array<{value: number, timestamp: number}> = JSON.parse(JSON.parse(event.data))
+        const parsed = JSON.parse(event.data)
         setMostRecentReading(parsed[0])
         console.log('Parsed:', parsed)
-        // if (newTimestamp > readings[0].timestamp + 30) {
-        //   if (newTimestamp % 60 > 30) {
-        //     parsed[0].timestamp = newTimestamp - (newTimestamp % 60) + 60
-        //   } else {
-        //     parsed[0].timestamp = newTimestamp - (newTimestamp % 60)
-        //   }
-        //   setReadings(prev => [parsed[0], ...prev])
-        // }
       } catch (err) {
         console.error('Failed to parse SSE data:', err)
       }

@@ -1,3 +1,4 @@
+import json
 from typing import List, Optional
 
 import fetch_glucose
@@ -262,15 +263,20 @@ async def get_latest_glucose_reading(
 ) -> Optional[GlucoseReadingModel]:
     return await fetch_latest(session)
 
-async def stream_glucose_readings(
-    session: AsyncSession,
-) -> List[GlucoseReadingModel]:
+async def stream_glucose_readings() -> List[dict]:
     reading = await sse_queue.get()
     if reading is None:
         raise ValueError("No reading found in SSE queue")
+    assert isinstance(reading, str)
+    reading = json.loads(reading)
+    assert isinstance(reading, list)
+    assert len(reading) == 1
+    reading = reading[0]
+    logger.debug(f"Service: received reading: {reading}")
     minute_timestamp = reading["timestamp"] - reading["timestamp"] % 60 + 60
-    return [GlucoseReadingModel(
-        id=reading["id"],
-        value=reading["value"],
-        timestamp=minute_timestamp
-    )]
+    return [
+        {
+            "value": reading["value"],
+            "timestamp": minute_timestamp,
+        }
+    ]

@@ -110,13 +110,14 @@ async def stream_readings(
     granularity: str = "1m",
 ):
     """Stream events from the server"""
+    # TODO: limit and granularity may be used in the future to filter the data
     async def event_stream():
         while True:
             logger.debug("Waiting for new data...")
             if await request.is_disconnected():
                 break
             
-            data = await controller_stream_readings(limit=limit, granularity=granularity)
+            data = await controller_stream_readings()
             # send JSON-formatted data for easier client parsing
             yield f"data: {json.dumps(data)}\n\n"
         
