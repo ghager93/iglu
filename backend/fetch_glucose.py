@@ -58,7 +58,7 @@ async def get_token():
     return token
 
 
-async def fetch_glucose_readings(token: str):
+async def fetch_glucose_readings(token: str) -> dict:
     if not LIBRE_HOST_URL:
         raise ValueError("LIBRE_HOST_URL is not set")
     url = f"{LIBRE_HOST_URL.rstrip('/')}/{GLUCOSE_ENDPOINT.lstrip('/')}"
@@ -69,7 +69,7 @@ async def fetch_glucose_readings(token: str):
         return extract_readings(resp.json())
 
 
-def extract_readings(api_resp):
+def extract_readings(api_resp: dict) -> dict:
     """Return list of readings with 'value' and epoch 'timestamp' from API response."""
     data = api_resp.get('data', {})
     graph = data.get('graphData', [])
@@ -86,7 +86,7 @@ def extract_readings(api_resp):
         dt = dt.replace(tzinfo=timezone.utc)
         ts = int(dt.timestamp())
         readings.append({'value': item.get('Value'), 'timestamp': ts})
-    return readings
+    return {"readings": readings, "current_measurement": current_measurement}
 
 
 async def main():
