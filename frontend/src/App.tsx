@@ -1,12 +1,76 @@
 import { useState, useEffect } from 'react'
 import './App.css'
-import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { GlucoseChart } from './components/GlucoseChart'
 
 const GMT_TIMEZONE = 'UTC'
 
 const API_URL = 'http://localhost:8000/api'
 const READING_LIMIT = 100
 
+// Separate component for timer display to prevent chart re-renders
+const TimeDisplay = ({ lastReading }: { lastReading: {value: number, timestamp: number} }) => {
+  const [currTime, setCurrTime] = useState<number>(Math.floor(Date.now()/1000))
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrTime(Math.floor(Date.now()/1000))
+    }, 1000)
+    return () => clearInterval(interval)
+  }, [])
+
+  if (!lastReading) return null
+
+  return (
+    <>
+      {/* Time since last reading */}
+      <h2>Time Since Last Reading</h2>
+      <p>{currTime - lastReading.timestamp + 600 * 60} seconds</p>
+    </>
+  )
+}
+
+const ReadingDisplay = ({ reading }: { reading: {value: number, timestamp: number} }) => {
+  const [currTime, setCurrTime] = useState<number>(Math.floor(Date.now()/1000))
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrTime(Math.floor(Date.now()/1000))
+    }, 1000)
+    return () => clearInterval(interval)
+  }, [])
+
+  if (!reading) return null
+
+  const timeSinceReading = currTime - reading.timestamp + 600 * 60
+  let timeSinceReadingStr = "Now"
+  if (timeSinceReading < 10) {
+    timeSinceReadingStr = "Just now"
+  } else if (timeSinceReading < 60) {
+    timeSinceReadingStr = `< 1 minute ago`
+  } else if (timeSinceReading < 120) {
+    timeSinceReadingStr = `1 minute ago`
+  } else if (timeSinceReading < 3600) {
+    timeSinceReadingStr = `${Math.floor(timeSinceReading / 60)} minutes ago`
+  } else if (timeSinceReading < 1800) {
+    timeSinceReadingStr = `1 hour ago`
+  } else if (timeSinceReading < 86400) {
+    timeSinceReadingStr = `${Math.floor(timeSinceReading / 3600)} hours ago`
+  } else if (timeSinceReading < 172800) {
+    timeSinceReadingStr = `1 day ago`
+  } else {
+    timeSinceReadingStr = `${Math.floor(timeSinceReading / 86400)} days ago`
+  }
+
+  return (
+    <>
+      <p>{reading.value} mmoL</p>
+      <p>{new Date(reading.timestamp * 1000)
+        .toLocaleString('en-AU', { timeZone: GMT_TIMEZONE })
+      }</p>
+      <p>{timeSinceReadingStr}</p>
+    </>
+  )
+}
 
 function App() {
   const [readings, setReadings] = useState<Array<{value: number, timestamp: number}>>([])
@@ -14,9 +78,8 @@ function App() {
   const [to, setTo] = useState<number>(Math.floor(Date.now()/1000))
   const [granularity, setGranularity] = useState<string>('1m')
   const [isLive, setIsLive] = useState<boolean>(true)
-  const [currTime, setCurrTime] = useState<number>(Math.floor(Date.now()/1000))
   const [lastReadingTime, setLastReadingTime] = useState<number>(0)
-  const [mostRecentReading, setMostRecentReading] = useState<{value: number, timestamp: number} | null>(null)
+  const [mostRecentReading, setMostRecentReading] = useState<{value: number, timestamp: number} | null>(readings.length > 0 ? readings[0] : null)
 
   const handleFetchReadings = async () => {
     try {
@@ -51,6 +114,7 @@ function App() {
   // Automatically load readings on component mount
   useEffect(() => {
     handleFetchReadings()
+    setMostRecentReading(readings[0])
   }, [])
 
   // Real-time stream data
@@ -110,12 +174,7 @@ function App() {
     return () => clearInterval(interval)
   }, [readings])
 
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrTime(Math.floor(Date.now()/1000))
-    }, 1000)
-    return () => clearInterval(interval)
-  }, [])
+
 
 
   return (
@@ -150,64 +209,19 @@ function App() {
             </table>
           </div>
 
-          {/* Most recent reading */}
-          <h2>Most Recent Reading</h2>
-          <p>{readings[0].value} mmoL</p>
-          <p>{new Date(readings[0].timestamp * 1000)
-            .toLocaleString('en-AU', { timeZone: GMT_TIMEZONE })
-          }</p>
-
-          <h2>Most Recent Reading (Streamed)</h2>
+          <h2>Live Reading</h2>
           {mostRecentReading && (
-            <>
-              <p>{mostRecentReading.value} mmoL</p>
-              <p>{new Date(mostRecentReading.timestamp * 1000)
-                .toLocaleString('en-AU', { timeZone: GMT_TIMEZONE })
-              }</p>
-            </>
+            <ReadingDisplay reading={mostRecentReading} />
           )}
 
           {/* Time since last reading */}
-          <h2>Time Since Last Reading</h2>
-          <p>{currTime - readings[0].timestamp + 600 * 60} seconds</p>
-          <p>{currTime} {readings[0].timestamp - 600 * 60}</p>
-          <p>{lastReadingTime}</p>
+          {mostRecentReading && (
+            <TimeDisplay lastReading={mostRecentReading} />
+          )}
 
           {/* Line chart */}
           <h2>Glucose Trend</h2>
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart
-              data={[...readings].reverse()}
-              margin={{ top: 20, right: 30, left: 0, bottom: 0 }}
-            >
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis
-                dataKey="timestamp"
-                type="number"
-                domain={["min", "max"]}
-                tickFormatter={(ts: number) =>
-                  new Date(ts * 1000).toLocaleTimeString('en-AU', { timeZone: GMT_TIMEZONE, hour: '2-digit', minute: '2-digit' })
-                }
-                interval="preserveStartEnd"
-              />
-              <YAxis domain={["auto", "auto"]} />
-              <Tooltip
-                labelFormatter={(ts: number) =>
-                  new Date(ts * 1000).toLocaleString('en-AU', { timeZone: GMT_TIMEZONE, hour12: false })
-                }
-              />
-              <Line type="monotone" dataKey="value" stroke="#8884d8" dot={false} />
-            </LineChart>
-          </ResponsiveContainer>
-{/* 
-          <h2>Test</h2>
-          <ul>
-            {testData.map( data => (
-              <li key={data}>
-                {data}
-              </li>
-            ))}
-          </ul> */}
+          <GlucoseChart readings={readings} />
         </div>
       )}
     </div>
