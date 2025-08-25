@@ -7,10 +7,12 @@ from app.api import glucose_readings
 from app.api.glucose_readings import fetch_and_save_remote_readings
 from app.db.database import SessionLocal
 from app.db.sse_queue import sse_queue
+from app.models.api_user import ApiUser
 from app.models.glucose_reading import GlucoseReading
 from app.repositories.glucose_repository import upsert_readings
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI, HTTPException, Security
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import APIKeyHeader
 from loguru import logger
 from sqlalchemy import select
 
@@ -26,7 +28,8 @@ async def lifespan(app: FastAPI):
                     logger.info("Service: fetching remote readings")
                     token = await fetch_glucose.get_token()
                     readings = await fetch_glucose.fetch_glucose_readings(token)
-                    data = sorted([dict(value=r["value"], timestamp=r["timestamp"]) for r in readings], key=lambda x: x["timestamp"])
+                    logger.debug(f"readings: {readings}")
+                    data = sorted([dict(value=r["value"], timestamp=r["timestamp"]) for r in readings["readings"]], key=lambda x: x["timestamp"])
                     
                     stmt = select(GlucoseReading).where(
                         GlucoseReading.timestamp >= data[0]["timestamp"],
@@ -66,8 +69,18 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+api_key_header = APIKeyHeader(name="X-API-KEY", auto_error=False)
+
+async def check_api_key(api_key: str = Security(api_key_header)) -> None:
+    async with SessionLocal() as db:
+        stmt = select(ApiUser).where(ApiUser.api_key == api_key)
+        result = await db.execute(stmt)
+        user = result.scalar_one_or_none()
+        if not user:
+            raise HTTPException(status_code=401, detail="Invalid API key")
+    
 # Include routers
-app.include_router(glucose_readings.router, prefix="/api")
+app.include_router(glucose_readings.router, prefix="/api", dependencies=[Depends(check_api_key)])
 
 
 @app.get("/")
