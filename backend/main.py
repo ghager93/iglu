@@ -76,7 +76,7 @@ async def check_api_key(api_key: str = Security(api_key_header)) -> None:
         stmt = select(ApiUser).where(ApiUser.api_key == api_key)
         result = await db.execute(stmt)
         user = result.scalar_one_or_none()
-        if not user:
+        if not user or not user.is_active:
             raise HTTPException(status_code=401, detail="Invalid API key")
     
 # Include routers

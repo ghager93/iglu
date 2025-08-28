@@ -167,7 +167,11 @@ function App() {
         try {
           console.log('Fetching new readings')
           const lastReadingTime = readings[0].timestamp
-          const res = await fetch(`${API_URL}/glucose-readings?order=desc&granularity=1m&from=${lastReadingTime}`)
+          const res = await fetch(`${API_URL}/glucose-readings?order=desc&granularity=1m&from=${lastReadingTime}`, {
+            headers: {
+              'X-API-KEY': API_KEY
+            }
+          })
           if (!res.ok) {
             const errBody = await res.text()
             console.error(`Remote fetch failed with status ${res.status}:`, errBody)
