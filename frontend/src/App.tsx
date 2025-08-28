@@ -1,3 +1,4 @@
+import { EventSource } from 'eventsource'
 import { useState, useEffect } from 'react'
 import './App.css'
 import { GlucoseChart } from './components/GlucoseChart'
@@ -6,6 +7,8 @@ const GMT_TIMEZONE = 'UTC'
 
 const API_URL = 'http://localhost:8000/api'
 const READING_LIMIT = 100
+
+const API_KEY = import.meta.env.VITE_API_KEY
 
 // Separate component for timer display to prevent chart re-renders
 const TimeDisplay = ({ lastReading }: { lastReading: {value: number, timestamp: number} }) => {
@@ -86,9 +89,17 @@ function App() {
       console.log('Fetching readings')
       let res
       if (isLive) {
-        res = await fetch(`${API_URL}/glucose-readings?order=desc&granularity=${granularity}&from=${from}`)
+        res = await fetch(`${API_URL}/glucose-readings?order=desc&granularity=${granularity}&from=${from}`, {
+          headers: {
+            'X-API-KEY': API_KEY
+          }
+        })
       } else {
-        res = await fetch(`${API_URL}/glucose-readings?order=desc&granularity=${granularity}&from=${from}&to=${to}`)
+        res = await fetch(`${API_URL}/glucose-readings?order=desc&granularity=${granularity}&from=${from}&to=${to}`, {
+          headers: {
+            'X-API-KEY': API_KEY
+          }
+        })
       }
       if (!res.ok) {
         const errBody = await res.text()
@@ -120,7 +131,16 @@ function App() {
   // Real-time stream data
   // const [testData, setTestData] = useState<string[]>([])
   useEffect(() => {
-    const eventSource = new EventSource('http://localhost:8000/api/glucose-readings/stream')
+    const eventSource = new EventSource('http://localhost:8000/api/glucose-readings/stream', {
+      fetch: (input, init) => 
+        fetch(input, {
+          ...init,
+          headers: {
+            ...init.headers,
+            'X-API-KEY': API_KEY
+          }
+        })
+    })
     eventSource.onmessage = (event) => {
       console.log('Received SSE:', event.data)
       console.log('Data type:', typeof event.data)
